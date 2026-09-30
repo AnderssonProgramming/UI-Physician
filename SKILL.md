@@ -389,6 +389,18 @@ counts as valid only if it shows the target screen was reached (a
 `Displayed`/`ActivityTaskManager` line or the reproduction steps the user
 confirms); a clean log from a screen that was never opened is not evidence.
 
+The script reports `MUTATED` with a `progress_hint` (`later_line`,
+`different_layout`, `same_element_new_failure`, `earlier_line`, `unknown`).
+The agent turns it into the §5.3 verdict because only the agent knows what
+the patch touched:
+
+| Hint | Default verdict | Override to `MUTATED_REGRESSION` when |
+|---|---|---|
+| `later_line` | `MUTATED_PROGRESS` | The new failure is inside an element the patch edited |
+| `different_layout` | `MUTATED_PROGRESS` if that layout is inflated after the original one | The layout was introduced or edited by the patch |
+| `same_element_new_failure` | `MUTATED_PROGRESS` if the new cause names a different attribute/token | The new cause names a value the patch introduced |
+| `earlier_line`, `unknown` | `MUTATED_REGRESSION` | Never promoted without Tier-1 evidence of downstream order |
+
 ### 6.3 Reporting confidence
 
 | Evidence | Allowed claim |
