@@ -240,3 +240,107 @@ the self-correction loop (§5).
 Produce the output contract (§8) for `RESOLVED`, or the escalation report
 (§5.5) for any other exit.
 
+## 5. Self-Correction Logic
+
+### 5.1 Loop controller
+
+```text
+function run_ui_physician(log, files):
+    intake(log, files)                          # Phase 0; may STOP
+    analysis = analyze(baseline)                # Phase 1
+    loop:
+        if iteration == max_iterations:
+            return escalate(EXHAUSTED)
+        h = hypothesize(analysis, scope, ledger)   # Phase 2
+        if h is None:                              # search space empty at this scope
+            if scope == ENVIRONMENT:
+                return escalate(NO_HYPOTHESIS)
+            scope = widen(scope); continue         # widening is free: no iteration consumed
+        patch = execute(h, baseline)               # Phase 3; iteration += 1
+        verdict, fp = verify(patch)                # Phase 4 / §6
+        if verdict in (MUTATED_PROGRESS, MUTATED_REGRESSION) and fp.id in ledger.seen_ids:
+            return escalate(OSCILLATION)           # fix A unmasks B, fix B brings back A
+        ledger.record(h, patch, fp, verdict)
+
+        switch verdict:
+            RESOLVED:           return report(SUCCESS)
+            UNVERIFIED:         return report(PENDING_RUNTIME_CONFIRMATION)
+            MUTATED_PROGRESS:   baseline = apply(baseline, patch)
+                                baseline.fingerprint = fp
+                                analysis = analyze(baseline)     # new target, same scope
+            PERSISTED:          backtrack(h); scope = widen(scope)
+            MUTATED_REGRESSION: backtrack(h); scope = widen(scope)
+```
+
+`ledger.seen_ids` holds the baseline fingerprint and every fingerprint
+observed in earlier iterations. `widen` saturates at `ENVIRONMENT`.
+
+### 5.2 Exit conditions
+
+| Exit | Trigger | Result |
+|---|---|---|
+| `SUCCESS` | Verdict `RESOLVED` with Tier-2 evidence (§6.2) | Report with patch |
+| `PENDING_RUNTIME_CONFIRMATION` | Tier-1 checks pass but no post-fix log can be obtained | Report with patch, explicitly labelled unconfirmed |
+| `EXHAUSTED` | `iteration == 3` without `RESOLVED` | Escalate |
+| `NO_HYPOTHESIS` | Search space empty at `ENVIRONMENT` scope | Escalate |
+| `OSCILLATION` | A previously seen fingerprint returns (fix A unmasks B, fix B brings back A) | Escalate immediately |
+| `OUT_OF_SCOPE` | New deepest cause belongs to no in-scope family | Hand off with the partial fix that got there |
+| `BLOCKED` | Intake gate or a required file request unanswered | Stop with the precise request |
+
+### 5.3 How the agent knows it failed
+
+The verdict is a pure function of the baseline fingerprint `B` and the
+post-patch capture `C`:
+
+| Condition | Verdict | Meaning |
+|---|---|---|
+| `C` has no `FATAL EXCEPTION` for the app PID and the target layout/screen rendered (e.g. `Displayed <activity>` line) | `RESOLVED` | Fix confirmed |
+| `C.id == B.id` | `PERSISTED` | Hypothesis falsified |
+| `C.id != B.id` and the new failure is **downstream** of the old one: same layout at a later element, a layout inflated later in the same flow, or the same element failing on a *different attribute* | `MUTATED_PROGRESS` | Fix worked; it unmasked the next defect |
+| `C.id != B.id` otherwise (earlier element, unrelated screen, new exception introduced by the edited element itself) | `MUTATED_REGRESSION` | Fix broke something |
+| No capture available | `UNVERIFIED` | Fall back to Tier-1 only |
+
+### 5.4 Retry logic — what changes on each attempt
+
+A retry is never "try harder with the same idea". Each iteration changes at
+least one of: **scope**, **evidence**, or **assumption set**.
+
+1. **Backtrack** (`PERSISTED`, `MUTATED_REGRESSION`):
+   - Revert `active_patch`; the next patch is re-derived from `baseline`.
+   - Mark the hypothesis rejected with a one-line reason in the ledger.
+   - Invalidate every assumption the rejected hypothesis introduced and turn
+     each into an explicit evidence request or a check (e.g. assumption
+     "the included root has an id" → request the included file).
+   - Widen `scope` by one level and re-run Phase 1 **step 4 exhaustively**
+     over the new search space: enumerate every node/attribute against the
+     violated invariant instead of stopping at the first suspect.
+2. **Promote** (`MUTATED_PROGRESS`):
+   - Keep the patch; it becomes part of the new baseline.
+   - Retarget analysis at the new fingerprint without widening scope.
+   - The iteration still counts toward the limit: three chained defects
+     that cannot be cleared in three patches are escalated, not chased.
+3. **Iteration strategy by attempt number:**
+
+   | Attempt | Default scope | Required change vs. previous attempt |
+   |---|---|---|
+   | 1 | `LOCAL` | — (most specific hypothesis from the deepest cause) |
+   | 2 | `HIERARCHY` | Previous hypothesis rejected; ancestors, includes, styles, and the parent's constraint graph scanned exhaustively; assumptions from attempt 1 resolved or re-requested |
+   | 3 | `ENVIRONMENT` | Manifest theme, qualifiers, dependency versions, binding/R8 build transforms examined; if still ambiguous, ask a discriminating question (§7.2) *before* spending the attempt |
+
+### 5.5 Escalation report
+
+```markdown
+## UI-Physician: escalation (<EXIT_CODE>)
+**Target crash:** <root_exception>: <root_message> @ <layout>:<line>
+**Iterations used:** <n>/3   **Final scope:** <scope>
+
+| # | Scope | Hypothesis | Patch (summary) | Verdict | Why rejected |
+|---|---|---|---|---|---|
+| 1 | LOCAL | ... | ... | PERSISTED | ... |
+
+**What is now known:** <facts the loop established, including falsified causes>
+**Open assumptions:** <unverified facts that still matter>
+**Next evidence needed:** <the single most discriminating artifact or experiment>
+**Safe partial fix (if any):** <diff of MUTATED_PROGRESS patches, else "none">
+```
+
