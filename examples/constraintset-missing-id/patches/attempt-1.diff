@@ -1,0 +1,11 @@
+diff --git a/res/layout/fragment_checkout.xml b/res/layout/fragment_checkout.xml
+--- a/res/layout/fragment_checkout.xml
++++ b/res/layout/fragment_checkout.xml
+@@ -48,6 +48,7 @@
+     </LinearLayout>
+ 
+     <View
++        android:id="@+id/subtotal_divider"
+         android:layout_width="0dp"
+         android:layout_height="1dp"
+         android:layout_marginTop="12dp"

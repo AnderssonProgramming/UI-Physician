@@ -1,0 +1,22 @@
+diff --git a/res/layout/fragment_checkout.xml b/res/layout/fragment_checkout.xml
+--- a/res/layout/fragment_checkout.xml
++++ b/res/layout/fragment_checkout.xml
+@@ -48,6 +48,7 @@
+     </LinearLayout>
+ 
+     <View
++        android:id="@+id/subtotal_divider"
+         android:layout_width="0dp"
+         android:layout_height="1dp"
+         android:layout_marginTop="12dp"
+diff --git a/res/layout/view_promo_banner.xml b/res/layout/view_promo_banner.xml
+--- a/res/layout/view_promo_banner.xml
++++ b/res/layout/view_promo_banner.xml
+@@ -15,6 +15,7 @@
+         app:layout_constraintStart_toStartOf="parent" />
+ 
+     <TextView
++        android:id="@+id/promo_text"
+         android:layout_width="0dp"
+         android:layout_height="wrap_content"
+         android:layout_marginStart="8dp"

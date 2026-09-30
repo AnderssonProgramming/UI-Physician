@@ -463,3 +463,6 @@ hypothesis is below `medium`:
 | # | Scope | Hypothesis | Verdict |
 |---|---|---|---|
 ~~~
+
+A worked end-to-end session, including a failed first attempt and a
+backtrack, is in [`examples/constraintset-missing-id`](examples/constraintset-missing-id/walkthrough.md).

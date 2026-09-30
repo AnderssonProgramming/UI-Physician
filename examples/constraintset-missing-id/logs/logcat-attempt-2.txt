@@ -1,0 +1,5 @@
+09-30 14:26:10.118  1532  1601 I ActivityTaskManager: START u0 {cmp=com.example.shop/.checkout.CheckoutActivity} from uid 10231
+09-30 14:26:10.330 18802 18802 I com.example.shop: Late-enabling -Xcheck:jni
+09-30 14:26:10.702 18802 18802 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10231; state: ENABLED
+09-30 14:26:10.911  1532  1579 I ActivityTaskManager: Displayed com.example.shop/.checkout.CheckoutActivity for user 0: +793ms
+09-30 14:26:11.004 18802 18830 D EGL_emulation: app_time_stats: avg=11.52ms min=2.18ms max=41.07ms count=52

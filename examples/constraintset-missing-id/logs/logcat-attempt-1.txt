@@ -1,0 +1,19 @@
+09-30 14:19:44.402  1532  1601 I ActivityTaskManager: START u0 {cmp=com.example.shop/.checkout.CheckoutActivity} from uid 10231
+09-30 14:19:44.611  18517  18517 I com.example.shop: Late-enabling -Xcheck:jni
+09-30 14:19:44.978  18517  18517 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10231; state: ENABLED
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: FATAL EXCEPTION: main
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: Process: com.example.shop, PID: 18517
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: java.lang.RuntimeException: All children of ConstraintLayout must have ids to use ConstraintSet
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at androidx.constraintlayout.widget.ConstraintSet.clone(ConstraintSet.java:3563)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at com.example.shop.checkout.CheckoutFragment.applyCompactMode(CheckoutFragment.kt:21)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at com.example.shop.checkout.CheckoutFragment.onViewCreated(CheckoutFragment.kt:15)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at androidx.fragment.app.Fragment.performViewCreated(Fragment.java:3147)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at androidx.fragment.app.FragmentStateManager.createView(FragmentStateManager.java:588)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at androidx.fragment.app.FragmentStateManager.moveToExpectedState(FragmentStateManager.java:272)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at androidx.fragment.app.FragmentManager.executeOpsTogether(FragmentManager.java:1943)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:288)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:7918)
+09-30 14:19:44.985  18517  18517 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+09-30 14:19:44.987  1532  1587 W ActivityTaskManager:   Force finishing activity com.example.shop/.checkout.CheckoutActivity
+09-30 14:19:44.991  18517  18517 I Process : Sending signal. PID: 18517 SIG: 9
