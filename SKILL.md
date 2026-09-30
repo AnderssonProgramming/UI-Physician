@@ -344,3 +344,56 @@ least one of: **scope**, **evidence**, or **assumption set**.
 **Safe partial fix (if any):** <diff of MUTATED_PROGRESS patches, else "none">
 ```
 
+## 6. Verification Strategy
+
+Success is confirmed in two tiers. Tier 1 is necessary; only Tier 2 is
+sufficient for `RESOLVED`.
+
+### 6.1 Tier 1 — static trace conformance (always runs)
+
+Before a patch is emitted, it must pass all of:
+
+1. **Coverage:** the patch edits the element located in Phase 1 (or, in
+   `HIERARCHY`/`ENVIRONMENT` scope, a node on its ancestor/include/theme path)
+   and addresses the exact token in the deepest cause (class name, attribute
+   index/name, resource name, missing id).
+2. **Resolution:** every `@type/name` and `?attr/name` the patch introduces
+   resolves in the supplied files or in a declared dependency; no invented
+   resources.
+3. **Invariant replay** for the family, e.g.:
+   - `INF-CLASS`: tag FQCN == `package` + class name in the supplied source.
+   - `INF-CTOR`: a `(Context, AttributeSet)` constructor exists (or
+     `@JvmOverloads` covers it).
+   - `CL-IDS`: every direct child of the ConstraintLayout — including
+     `<include>` roots and `<merge>` children — ends up with an id.
+   - `CL-SILENT`: every child has ≥1 horizontal and ≥1 vertical constraint,
+     every referenced id is a sibling, and no chain is circular.
+4. **Blast radius:** the diff does not change unrelated elements and does not
+   remove ids referenced elsewhere in the supplied sources.
+
+### 6.2 Tier 2 — runtime reproduction
+
+If the agent has shell access to a build + device/emulator:
+
+```sh
+./gradlew :app:installDebug
+adb logcat -c
+adb shell am start -W -n <package>/<activity>   # plus navigation steps to reach the screen
+adb logcat -d -v threadtime -b main,crash > attempt-<n>.txt
+python scripts/fingerprint.py --compare logcat.txt attempt-<n>.txt
+```
+
+Otherwise, give the user those exact commands and wait for `attempt-<n>.txt`.
+The verdict table in §5.3 is then applied to the new capture. A capture
+counts as valid only if it shows the target screen was reached (a
+`Displayed`/`ActivityTaskManager` line or the reproduction steps the user
+confirms); a clean log from a screen that was never opened is not evidence.
+
+### 6.3 Reporting confidence
+
+| Evidence | Allowed claim |
+|---|---|
+| Tier 1 + Tier 2 | "Fixed and verified on runtime." |
+| Tier 1 only | "Statically consistent with the trace; pending runtime confirmation." |
+| Neither | No fix may be claimed. |
+
