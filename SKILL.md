@@ -397,3 +397,69 @@ confirms); a clean log from a screen that was never opened is not evidence.
 | Tier 1 only | "Statically consistent with the trace; pending runtime confirmation." |
 | Neither | No fix may be claimed. |
 
+## 7. Edge Case Handling
+
+### 7.1 Ambiguous or degraded logs
+
+| Situation | Detection | Action |
+|---|---|---|
+| `TRUNCATED` cause chain | Ends in `... N more` with no deepest `Caused by`, or the chain stops at `InflateException` | Diagnose from the inflating class + XML; request `adb logcat -b crash` (untruncated) and mark hypotheses `low` confidence |
+| Obfuscated frames | Frames like `a.b.c(Unknown Source:4)` | Request `mapping.txt` and run `retrace`; meanwhile rely on layout name and `Error inflating class` text, which R8 does not rewrite |
+| Interleaved crashes | Multiple `FATAL EXCEPTION` blocks / PIDs | Use the last one for the app package; mention earlier ones only if they share a fingerprint |
+| Generic inflation message | `Error inflating class <unknown>` or only `Binary XML file line #N` | Trust the line number, not the class; resolve the tag at line `N` directly |
+| `VERSION_SKEW` | Line `N` is blank, a comment, or not on a start tag | Ask whether the XML matches the build that produced the log; do not patch by proximity |
+| Data Binding layouts | Root is `<layout>` | Line numbers refer to the preprocessed file; map by the inflating class and ids instead of raw line numbers |
+| Nested includes | Several `in <pkg>:layout/...` references | The deepest reference is the failing file; outer ones are the include path to walk in `HIERARCHY` scope |
+| Recursive include | `StackOverflowError` with repeating `LayoutInflater.parseInclude` frames | Look for a layout that includes itself directly or via a cycle |
+| No exception at all | User reports a visual defect (`CL-SILENT`) | Skip fingerprinting; verification becomes the Tier-1 constraint invariants plus a user-confirmed screenshot |
+| Non-layout root cause | Deepest cause is outside §1.1 | Exit `OUT_OF_SCOPE` with what was ruled out |
+
+### 7.2 Differential diagnosis when the root cause is not apparent
+
+When Phase 1 yields more than one plausible family, or confidence of the top
+hypothesis is below `medium`:
+
+1. List at most three competing hypotheses, each with its predicted log
+   outcome.
+2. Find the **discriminating probe**: the cheapest observation whose result
+   differs between hypotheses — a file to request, a single attribute to
+   inspect, or a one-line experiment (e.g. temporarily replacing a custom view
+   tag with `View` to separate `INF-CLASS` from `INF-ATTR`).
+3. Prefer asking for the probe over spending a patch iteration; a question
+   does not consume an iteration, a wrong patch does.
+4. If the user cannot provide the probe, proceed with the highest-ranked
+   hypothesis and record the unresolved alternatives in `assumptions` so the
+   next backtrack starts from them.
+
+### 7.3 Guardrails
+
+- Never fabricate log lines, resource names, or file contents; if something is
+  needed and absent, request it.
+- Never report `RESOLVED` from Tier 1 alone.
+- Never stack a new guess on top of a failed patch.
+- Never exceed three patch iterations; escalate with the ledger instead.
+
+## 8. Output Contract
+
+~~~markdown
+## UI-Physician report
+**Status:** RESOLVED | PENDING_RUNTIME_CONFIRMATION
+**Family:** <code> — <one-line mechanism>
+**Location:** <layout file>:<line> (<element>)
+
+### Diagnosis
+<cause chain, from deepest cause to the user-visible crash, 3–6 lines>
+
+### Fix
+```diff
+<unified diff against the original files>
+```
+
+### Verification
+- Tier 1: <checks passed>
+- Tier 2: <capture used and verdict, or the commands the user must run>
+
+### Iteration ledger
+| # | Scope | Hypothesis | Verdict |
+|---|---|---|---|
+~~~
