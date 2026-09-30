@@ -164,3 +164,79 @@ when a shell is available, or by hand using the same rules:
 part of `id`: a patch that adds or removes lines above the failure shifts the
 line number without changing the defect, and must not be misread as progress.
 
+## 4. Reasoning Workflow
+
+`Intake → Analysis → Hypothesis → Execution → Verification → (Loop | Report)`
+
+### Phase 0 — Intake
+
+1. Run the intake gate (§2.4). Stop on any blocking failure.
+2. Isolate the crash block: the **last** `FATAL EXCEPTION` in the dump, then
+   only lines from the same PID (threadtime/Studio) — other processes'
+   output is noise.
+3. Compute and freeze `baseline.fingerprint` and `baseline.xml`.
+
+### Phase 1 — Analysis
+
+1. **Unwind the cause chain.** List every exception from outermost to deepest.
+   The deepest `Caused by` is the *mechanism*; outer `InflateException`s are
+   only the *location*. Never diagnose from the outermost line alone.
+2. **Locate.** From the deepest message containing
+   `Binary XML file line #N in <pkg>:layout/<name>`, open `<name>.xml` and
+   find the element whose start tag spans line `N`. If the failure is thrown
+   from code, locate the first app frame instead and map it to the layout it
+   inflates or binds.
+3. **Classify.** Match the deepest cause against the signature catalog and
+   assign exactly one family code (§1.1). If two families match, record both
+   and go to differential diagnosis (§7.2).
+4. **Build the evidence map.** For the located element, record: tag/class,
+   `android:id`, `style`, `android:theme` on it and on every ancestor,
+   `layout_*` attributes, and every `@`/`?attr` reference with whether it
+   resolves in the supplied files.
+
+Output of Phase 1: `{family, location, evidence_map, open_questions}`.
+
+### Phase 2 — Hypothesis
+
+1. Generate candidate root causes **for the current `scope` only**:
+
+   | Scope | Search space |
+   |---|---|
+   | `LOCAL` | The located element and its own attributes |
+   | `HIERARCHY` | Ancestors, siblings, `<include>`/`<merge>` targets, styles and theme overlays inherited through the view tree, constraint graph of the parent ConstraintLayout |
+   | `ENVIRONMENT` | Activity theme in the manifest, resource qualifiers (`-v21`, `-night`, `-land`), dependency presence/versions, Data/View Binding preprocessing, R8 keep rules |
+
+2. Each hypothesis MUST cite at least one log token and one file location, and
+   MUST state a predicted outcome (`RESOLVED`, or the specific next error it
+   expects to unmask).
+3. Discard any hypothesis already present in `ledger` with a rejected verdict
+   (compare by claim and by patch effect, not by wording).
+4. Rank by `specificity × evidence strength`; ties go to the smaller patch.
+   Every unverified fact the top hypothesis relies on is appended to
+   `assumptions`.
+
+### Phase 3 — Execution
+
+1. **Always patch the baseline**, never the previous attempt. The one
+   exception is the `MUTATED_PROGRESS` path (§5.3), where the previous patch
+   is promoted into a new baseline.
+2. Patch rules:
+   - One root cause per patch; the smallest edit that falsifies the hypothesis.
+   - No reformatting, reordering, or renaming outside the edited element.
+   - Never delete a view, constraint, or id to silence a crash.
+   - Preserve existing `android:id`s (code and bindings depend on them).
+   - Prefer XML fixes; touch code only when the trace's app frame is the
+     defect (e.g. a missing constructor, a wrong `LayoutParams` cast).
+3. Emit the patch as a unified diff, set `active_patch`, increment
+   `iteration`, and write the ledger entry (verdict pending).
+
+### Phase 4 — Verification
+
+Run the verification strategy (§6) to obtain a verdict, then hand control to
+the self-correction loop (§5).
+
+### Phase 5 — Report
+
+Produce the output contract (§8) for `RESOLVED`, or the escalation report
+(§5.5) for any other exit.
+
